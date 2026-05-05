@@ -51,6 +51,8 @@ export class AVLNode {
     this.isNew = false; this.isRotating = false;
     this.alpha = 0; this.pulseTimer = 0; this.highlightVal = 0;
     this.prelim = 0; this.mod = 0;
+    this.highlightColor = null;
+    this.highlightDuration = 0;
   }
 }
 
@@ -59,6 +61,7 @@ export class BST {
     this.root = null;
     this.searchPath = [];
     this.isAVL = true;
+    this._slowMode = false;
   }
 
   clearTree() { this.root = null; }
@@ -120,6 +123,77 @@ export class BST {
       while (q.length) { const n = q.shift(); v.push(n.data); if (n.left) q.push(n.left); if (n.right) q.push(n.right); }
     }
     return this._fmt(v);
+  }
+
+  buildFromArray(arr) {
+    this.root = null;
+    for (const val of arr) {
+      this.root = this._insertNoAnim(this.root, val);
+    }
+    this._rebuildPositions();
+    this._snapNewNodesToCurrent();
+  }
+
+  _insertNoAnim(n, val) {
+    if (!n) { const nd = new AVLNode(val); nd.alpha = 1; return nd; }
+    if (val < n.data) n.left = this._insertNoAnim(n.left, val);
+    else if (val > n.data) n.right = this._insertNoAnim(n.right, val);
+    else return n;
+    this._uh(n);
+    return n;
+  }
+
+  clearHighlight() {
+    this._clearHL(this.root);
+  }
+  _clearHL(n) {
+    if (!n) return;
+    n.highlightColor = null;
+    n.highlightDuration = 0;
+    this._clearHL(n.left);
+    this._clearHL(n.right);
+  }
+
+  highlightNode(data, color, duration = 2) {
+    this._highlightRec(this.root, data, color, duration);
+  }
+  _highlightRec(n, data, color, duration) {
+    if (!n) return;
+    if (n.data === data) {
+      n.highlightColor = color;
+      n.highlightDuration = duration;
+    }
+    this._highlightRec(n.left, data, color, duration);
+    this._highlightRec(n.right, data, color, duration);
+  }
+
+  getNodeByData(data) {
+    return this._getNodeRec(this.root, data);
+  }
+  _getNodeRec(n, data) {
+    if (!n) return null;
+    if (n.data === data) return n;
+    const l = this._getNodeRec(n.left, data);
+    if (l) return l;
+    return this._getNodeRec(n.right, data);
+  }
+
+  getBalanceFactor(data) {
+    const node = this.getNodeByData(data);
+    if (!node) return 0;
+    return this._h(node.left) - this._h(node.right);
+  }
+
+  getInsertionPath(val) {
+    const path = [];
+    let cur = this.root;
+    while (cur) {
+      path.push(cur.data);
+      if (val < cur.data) cur = cur.left;
+      else if (val > cur.data) cur = cur.right;
+      else break;
+    }
+    return path;
   }
 
   tickAnimations(dt, lerpSpeed) { this._tickNode(this.root, dt, lerpSpeed); }
@@ -249,15 +323,19 @@ export class BST {
 
   _tickNode(n, dt, lerpSpeed) {
     if (!n) return;
-    const t = 1 - Math.exp(-lerpSpeed * dt);
+    const effectiveSpeed = this._slowMode ? Math.max(0.3, lerpSpeed * 0.15) : lerpSpeed;
+    const t = 1 - Math.exp(-effectiveSpeed * dt);
     n.cur_x += (n.tgt_x - n.cur_x) * t;
     n.cur_y += (n.tgt_y - n.cur_y) * t;
-    if (n.alpha < 1) n.alpha = Math.min(1, n.alpha + dt * lerpSpeed * 0.35);
+    if (n.alpha < 1) n.alpha = Math.min(1, n.alpha + dt * effectiveSpeed * 0.35);
     if (n.pulseTimer > 0) { n.pulseTimer -= dt; if (n.pulseTimer <= 0) { n.pulseTimer = 0; n.isNew = false; } }
     if (n.highlightVal > 0) { n.highlightVal -= dt * 0.9; if (n.highlightVal <= 0) { n.highlightVal = 0; n.isRotating = false; } }
+    if (n.highlightDuration > 0) { n.highlightDuration -= dt; if (n.highlightDuration <= 0) { n.highlightColor = null; n.highlightDuration = 0; } }
     this._tickNode(n.left, dt, lerpSpeed);
     this._tickNode(n.right, dt, lerpSpeed);
   }
+
+  setSlowMode(enabled) { this._slowMode = enabled; }
 
   _preV(n, v)  { if (!n) return; v.push(n.data); this._preV(n.left,v); this._preV(n.right,v); }
   _inV(n, v)   { if (!n) return; this._inV(n.left,v); v.push(n.data); this._inV(n.right,v); }
@@ -293,6 +371,13 @@ export function drawTree(ctx, node, depth, searchPath, T) {
   if (node.isRotating && node.highlightVal > 0) {
     ctx.beginPath(); ctx.arc(cx,cy,NODE_R+12,0,Math.PI*2);
     ctx.fillStyle = colA('#ffc832',node.highlightVal*0.5*a); ctx.fill();
+  }
+  if (node.highlightColor && node.highlightDuration > 0) {
+    const hlAlpha = Math.min(1, node.highlightDuration * 0.5);
+    ctx.beginPath(); ctx.arc(cx,cy,NODE_R+16,0,Math.PI*2);
+    ctx.fillStyle = colA(node.highlightColor, hlAlpha * a * 0.6); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx,cy,NODE_R+10,0,Math.PI*2);
+    ctx.strokeStyle = colA(node.highlightColor, hlAlpha * a); ctx.lineWidth = 3; ctx.stroke();
   }
   if (searchPath.includes(node.data)) {
     ctx.beginPath(); ctx.arc(cx,cy,NODE_R+9,0,Math.PI*2);

@@ -73,6 +73,19 @@ export function initTreeVisualizer(container, type = 'avl') {
         <button class="tree-speed-btn" data-speed="2">Fast</button>
       </div>
     </section>
+    <hr class="tree-divider"/>
+    <section class="tree-section">
+      <div class="tree-section-label">PRESET SCENARIOS</div>
+      <button class="tree-btn tree-btn-preset sm" id="tv-btn-preset-ll">Insert: LL Imbalance</button>
+      <button class="tree-btn tree-btn-preset sm" id="tv-btn-preset-rr">Insert: RR Imbalance</button>
+      <button class="tree-btn tree-btn-preset sm" id="tv-btn-preset-lr">Insert: LR Imbalance</button>
+      <button class="tree-btn tree-btn-preset sm" id="tv-btn-preset-rl">Insert: RL Imbalance</button>
+      <button class="tree-btn tree-btn-preset sm" id="tv-btn-preset-del-leaf">Delete: Leaf Node</button>
+      <button class="tree-btn tree-btn-preset sm" id="tv-btn-preset-del-1child">Delete: 1 Child</button>
+      <button class="tree-btn tree-btn-preset sm" id="tv-btn-preset-del-2child">Delete: 2 Children</button>
+      <button class="tree-btn tree-btn-preset sm" id="tv-btn-preset-del-root">Delete: Root Node</button>
+      <button class="tree-btn tree-btn-preset sm" id="tv-btn-preset-cascade">Advanced: Cascading</button>
+    </section>
     <div class="tree-status-bar">
       <div class="tree-status-title">STATUS</div>
       <div class="tree-stat-line1" id="tv-stat1">${readyMsg}</div>
@@ -254,7 +267,7 @@ export function initTreeVisualizer(container, type = 'avl') {
     const m = sv !== null ? `Succ(${val}) = ${sv}` : `No successor for ${val}`;
     showPopup(m, T.accent2); setStatus(m, 'Path shown in yellow');
   }
-  function doGenerate() {
+function doGenerate() {
     const T = getT();
     let count = parseInt(randInput.value, 10);
     if (isNaN(count) || count < 1) count = 1;
@@ -263,12 +276,317 @@ export function initTreeVisualizer(container, type = 'avl') {
     const used = new Set(); let ins = 0, att = 0;
     while (ins < count && att < count * 30) {
       const v = Math.floor(Math.random() * 199) - 99;
-      if (!used.has(v)) { used.add(v); tree.insertNode(v); ins++; }
-      att++;
+      if (!used.has(v)) { used.add(v); tree.insertNode(v); ins++; att++; }
     }
     showPopup(`Generated ${ins} random nodes!`, T.success);
     setStatus(`Random tree: ${ins} nodes`, 'Add / delete nodes freely!');
     setTraversal('', '');
+  }
+
+  let presetInProgress = false;
+  async function runPreset(presetFn) {
+    if (presetInProgress) return;
+    presetInProgress = true;
+    tree.clearTree();
+    tree.searchPath = [];
+    setTraversal('', '');
+    const T = getT();
+    try {
+      await presetFn(T);
+    } catch (e) {
+      console.error('Preset error:', e);
+    }
+    presetInProgress = false;
+  }
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  async function doPresetLL(T) {
+    tree.buildFromArray([30, 20, 40, 10]);
+    showPopup('Building tree: [30, 20, 40, 10]', T.success, 2);
+    setStatus('Preset: LL Imbalance', 'Tree built. Inserting 5...');
+    await sleep(1400);
+    tree.setSlowMode(true);
+    tree.clearHighlight();
+    tree.searchPath = tree.getInsertionPath(5);
+    showPopup('Inserting 5... Path: 30 → 20 → 10', T.accent, 2.5);
+    await sleep(1800);
+    tree.insertNode(5);
+    await sleep(800);
+    const bf = tree.getBalanceFactor(30);
+    tree.highlightNode(30, '#ff4b4b', 3);
+    tree.searchPath = [];
+    showPopup(`⚠️ Node 30 has Balance Factor = ${bf}`, '#ff4b4b', 3);
+    setStatus('Balance Factor = ' + bf, 'Left-Left Imbalance detected!');
+    await sleep(2800);
+    tree.clearHighlight();
+    tree.highlightNode(30, '#ffc832', 2.5);
+    tree.highlightNode(20, '#ffc832', 2.5);
+    showPopup('Performing RIGHT ROTATION on node 30', '#ffc832', 2.5);
+    setStatus('Right Rotation', 'Node 30 rotates with child 20');
+    await sleep(2500);
+    tree.setSlowMode(false);
+    showPopup('✓ LL Imbalance corrected!', T.success, 2.5);
+    setStatus('Insertion complete', 'Tree is now balanced');
+  }
+
+  async function doPresetRR(T) {
+    tree.buildFromArray([30, 20, 40, 50]);
+    showPopup('Building tree: [30, 20, 40, 50]', T.success, 2);
+    setStatus('Preset: RR Imbalance', 'Tree built. Inserting 60...');
+    await sleep(1400);
+    tree.setSlowMode(true);
+    tree.clearHighlight();
+    tree.searchPath = tree.getInsertionPath(60);
+    showPopup('Inserting 60... Path: 30 → 40 → 50', T.accent, 2.5);
+    await sleep(1800);
+    tree.insertNode(60);
+    await sleep(800);
+    const bf = tree.getBalanceFactor(30);
+    tree.highlightNode(30, '#ff4b4b', 3);
+    tree.searchPath = [];
+    showPopup(`⚠️ Node 30 has Balance Factor = ${bf}`, '#ff4b4b', 3);
+    setStatus('Balance Factor = ' + bf, 'Right-Right Imbalance detected!');
+    await sleep(2800);
+    tree.clearHighlight();
+    tree.highlightNode(30, '#ffc832', 2.5);
+    tree.highlightNode(40, '#ffc832', 2.5);
+    showPopup('Performing LEFT ROTATION on node 30', '#ffc832', 2.5);
+    setStatus('Left Rotation', 'Node 30 rotates with child 40');
+    await sleep(2500);
+    tree.setSlowMode(false);
+    showPopup('✓ RR Imbalance corrected!', T.success, 2.5);
+    setStatus('Insertion complete', 'Tree is now balanced');
+  }
+
+  async function doPresetLR(T) {
+    tree.buildFromArray([30, 20, 40, 10]);
+    showPopup('Building tree: [30, 20, 40, 10]', T.success, 2);
+    setStatus('Preset: LR Imbalance', 'Tree built. Inserting 25...');
+    await sleep(1400);
+    tree.setSlowMode(true);
+    tree.clearHighlight();
+    tree.searchPath = tree.getInsertionPath(25);
+    showPopup('Inserting 25... Path: 30 → 20 → 10', T.accent, 2.5);
+    await sleep(1800);
+    tree.insertNode(25);
+    await sleep(800);
+    const bf = tree.getBalanceFactor(20);
+    tree.highlightNode(20, '#ff4b4b', 3);
+    tree.searchPath = [];
+    showPopup(`⚠️ Node 20 has Balance Factor = ${bf}`, '#ff4b4b', 3);
+    setStatus('Balance Factor = ' + bf, 'Left-Right Imbalance detected!');
+    await sleep(2800);
+    tree.clearHighlight();
+    tree.highlightNode(20, '#ffc832', 2);
+    tree.highlightNode(10, '#ffc832', 2);
+    showPopup('Step 1: LEFT ROTATION on node 20', '#ffc832', 2);
+    setStatus('LR: Step 1', 'Left rotation on 20');
+    await sleep(2200);
+    tree.highlightNode(30, '#ffc832', 2);
+    tree.highlightNode(20, '#ffc832', 2);
+    showPopup('Step 2: RIGHT ROTATION on node 30', '#ffc832', 2);
+    setStatus('LR: Step 2', 'Right rotation on 30');
+    await sleep(2200);
+    tree.setSlowMode(false);
+    showPopup('✓ LR Imbalance corrected!', T.success, 2.5);
+    setStatus('Insertion complete', 'Tree is now balanced');
+  }
+
+  async function doPresetRL(T) {
+    tree.buildFromArray([30, 20, 40, 50]);
+    showPopup('Building tree: [30, 20, 40, 50]', T.success, 2);
+    setStatus('Preset: RL Imbalance', 'Tree built. Inserting 35...');
+    await sleep(1400);
+    tree.setSlowMode(true);
+    tree.clearHighlight();
+    tree.searchPath = tree.getInsertionPath(35);
+    showPopup('Inserting 35... Path: 30 → 40 → 50', T.accent, 2.5);
+    await sleep(1800);
+    tree.insertNode(35);
+    await sleep(800);
+    const bf = tree.getBalanceFactor(40);
+    tree.highlightNode(40, '#ff4b4b', 3);
+    tree.searchPath = [];
+    showPopup(`⚠️ Node 40 has Balance Factor = ${bf}`, '#ff4b4b', 3);
+    setStatus('Balance Factor = ' + bf, 'Right-Left Imbalance detected!');
+    await sleep(2800);
+    tree.clearHighlight();
+    tree.highlightNode(40, '#ffc832', 2);
+    tree.highlightNode(50, '#ffc832', 2);
+    showPopup('Step 1: RIGHT ROTATION on node 40', '#ffc832', 2);
+    setStatus('RL: Step 1', 'Right rotation on 40');
+    await sleep(2200);
+    tree.highlightNode(30, '#ffc832', 2);
+    tree.highlightNode(40, '#ffc832', 2);
+    showPopup('Step 2: LEFT ROTATION on node 30', '#ffc832', 2);
+    setStatus('RL: Step 2', 'Left rotation on 30');
+    await sleep(2200);
+    tree.setSlowMode(false);
+    showPopup('✓ RL Imbalance corrected!', T.success, 2.5);
+    setStatus('Insertion complete', 'Tree is now balanced');
+  }
+
+  async function doPresetDelLeaf(T) {
+    tree.buildFromArray([30, 20, 40, 10, 25]);
+    showPopup('Building tree: [30, 20, 40, 10, 25]', T.success, 2);
+    setStatus('Preset: Delete Leaf', 'Tree built. Deleting leaf node 10...');
+    await sleep(1400);
+    tree.setSlowMode(true);
+    tree.clearHighlight();
+    tree.searchPath = [30, 20, 10];
+    tree.highlightNode(10, '#ff913c', 2.5);
+    showPopup('Finding node 10... Path: 30 → 20 → 10', T.accent, 2.5);
+    setStatus('Searching', 'Node 10 is a leaf (no children)');
+    await sleep(2000);
+    tree.clearHighlight();
+    tree.highlightNode(10, '#ff4b4b', 2);
+    showPopup('Deleting leaf node 10...', '#ff4b4b', 2);
+    setStatus('Deleting', 'Simply remove from parent');
+    await sleep(1800);
+    tree.deleteNode(10);
+    tree.searchPath = [];
+    await sleep(800);
+    tree.setSlowMode(false);
+    showPopup('✓ Leaf node deleted!', T.success, 2.5);
+    setStatus('Deletion complete', 'No rebalancing needed');
+  }
+
+  async function doPresetDel1Child(T) {
+    tree.buildFromArray([30, 20, 40, 10, 25, 50, 5]);
+    showPopup('Building tree: [30, 20, 40, 10, 25, 50, 5]', T.success, 2);
+    setStatus('Preset: Delete Node with 1 Child', 'Tree built. Deleting node 20...');
+    await sleep(1400);
+    tree.setSlowMode(true);
+    tree.clearHighlight();
+    tree.searchPath = [30, 20];
+    tree.highlightNode(20, '#ff913c', 2.5);
+    showPopup('Finding node 20... Path: 30 → 20', T.accent, 2.5);
+    setStatus('Searching', 'Node 20 has ONE child (25)');
+    await sleep(2000);
+    tree.clearHighlight();
+    tree.highlightNode(20, '#ff4b4b', 1.5);
+    tree.highlightNode(25, '#5aa0ff', 2);
+    showPopup('Node 20 has 1 child (25). Promoting child...', '#ff4b4b', 2.5);
+    setStatus('Promotion', 'Replace 20 with its child 25');
+    await sleep(2000);
+    tree.deleteNode(20);
+    tree.searchPath = [];
+    await sleep(800);
+    tree.setSlowMode(false);
+    showPopup('✓ Node deleted! (1 child promoted)', T.success, 2.5);
+    setStatus('Deletion complete', 'No rebalancing needed');
+  }
+
+  async function doPresetDel2Children(T) {
+    tree.buildFromArray([30, 20, 40, 10, 25, 35, 50]);
+    showPopup('Building tree: [30, 20, 40, 10, 25, 35, 50]', T.success, 2);
+    setStatus('Preset: Delete Node with 2 Children', 'Tree built. Deleting node 30...');
+    await sleep(1400);
+    tree.setSlowMode(true);
+    tree.clearHighlight();
+    tree.searchPath = [30];
+    tree.highlightNode(30, '#ff913c', 2.5);
+    showPopup('Finding node 30 (target)...', T.accent, 2);
+    setStatus('Searching', 'Node 30 has TWO children');
+    await sleep(1800);
+    tree.clearHighlight();
+    tree.highlightNode(30, '#ff4b4b', 1.5);
+    tree.highlightNode(40, '#5aa0ff', 2);
+    showPopup('Finding IN-ORDER SUCCESSOR (min of right subtree)', '#5aa0ff', 2.5);
+    setStatus('Finding Successor', 'Successor is smallest value in right subtree');
+    await sleep(2200);
+    tree.highlightNode(35, '#ffc832', 2);
+    showPopup('Successor found: 35 (min in right subtree)', '#ffc832', 2.5);
+    setStatus('Successor = 35', 'Replace 30 with 35');
+    await sleep(2000);
+    tree.clearHighlight();
+    tree.highlightNode(30, '#ff4b4b', 1.5);
+    showPopup('Replacing 30 with 35, then deleting 35 from right', '#ff4b4b', 3);
+    setStatus('Replace & Delete', 'Copy successor value, delete successor node');
+    await sleep(2800);
+    tree.deleteNode(30);
+    tree.searchPath = [];
+    await sleep(800);
+    tree.setSlowMode(false);
+    showPopup('✓ Node deleted! (2 children - successor method)', T.success, 2.5);
+    setStatus('Deletion complete', 'No rebalancing needed');
+  }
+
+  async function doPresetDelRoot(T) {
+    tree.buildFromArray([50, 30, 70, 20, 40, 60, 80]);
+    showPopup('Building tree: [50, 30, 70, 20, 40, 60, 80]', T.success, 2);
+    setStatus('Preset: Delete Root', 'Tree built. Deleting ROOT node 50...');
+    await sleep(1400);
+    tree.setSlowMode(true);
+    tree.clearHighlight();
+    tree.searchPath = [50];
+    tree.highlightNode(50, '#ff4b4b', 2.5);
+    showPopup('Target is ROOT node 50!', '#ff4b4b', 2);
+    setStatus('Deleting Root', 'Root has 2 children');
+    await sleep(2000);
+    tree.clearHighlight();
+    tree.highlightNode(50, '#ff913c', 1.5);
+    tree.highlightNode(70, '#5aa0ff', 2);
+    showPopup('Finding in-order successor (min of right subtree)', T.accent, 2.5);
+    setStatus('Successor', 'Find successor from right subtree');
+    await sleep(2200);
+    tree.highlightNode(60, '#ffc832', 2);
+    showPopup('Successor = 60', '#ffc832', 2);
+    await sleep(1800);
+    tree.clearHighlight();
+    tree.highlightNode(50, '#ff4b4b', 1.5);
+    showPopup('Replace root (50) with successor (60)', '#ff4b4b', 2.5);
+    setStatus('Replace', 'Root value replaced with 60');
+    await sleep(2200);
+    tree.deleteNode(50);
+    tree.searchPath = [];
+    await sleep(800);
+    tree.setSlowMode(false);
+    showPopup('✓ Root node deleted! New root is 60', T.success, 2.5);
+    setStatus('Deletion complete', 'Tree height reduced');
+  }
+
+  async function doPresetCascade(T) {
+    tree.buildFromArray([50, 30, 70, 20, 40, 60, 80, 10]);
+    showPopup('Building tree: [50, 30, 70, 20, 40, 60, 80, 10]', T.success, 2);
+    setStatus('Advanced: Cascading', 'Inserting 5 to trigger cascade...');
+    await sleep(1400);
+    tree.setSlowMode(true);
+    tree.clearHighlight();
+    tree.searchPath = tree.getInsertionPath(5);
+    showPopup('Inserting 5... Path: 50 → 30 → 20 → 10', T.accent, 2.5);
+    await sleep(1800);
+    tree.insertNode(5);
+    await sleep(600);
+    tree.clearHighlight();
+    const bf20 = tree.getBalanceFactor(20);
+    tree.highlightNode(20, '#ff4b4b', 2);
+    showPopup(`Node 20: BF = ${bf20} (Left-Left)`, '#ff4b4b', 2.5);
+    setStatus('First imbalance', 'Node 20 needs right rotation');
+    await sleep(2200);
+    tree.setSlowMode(true);
+    tree.clearHighlight();
+    tree.highlightNode(20, '#ffc832', 1.5);
+    tree.highlightNode(10, '#ffc832', 1.5);
+    showPopup('Rotating 20 with 10...', '#ffc832', 2);
+    setStatus('Rotation 1', 'Right rotation at 20');
+    await sleep(2000);
+    const bf50 = tree.getBalanceFactor(50);
+    tree.clearHighlight();
+    tree.highlightNode(50, '#ff4b4b', 2.5);
+    showPopup(`Node 50: BF = ${bf50} (cascading!)`, '#ff4b4b', 2.5);
+    setStatus('Cascading up', 'Imbalance propagates to parent!');
+    await sleep(2500);
+    tree.clearHighlight();
+    tree.highlightNode(50, '#ffc832', 1.5);
+    tree.highlightNode(30, '#ffc832', 1.5);
+    showPopup('Rotating 50 with 30...', '#ffc832', 2);
+    setStatus('Rotation 2', 'Right rotation at 50');
+    await sleep(2000);
+    tree.setSlowMode(false);
+    showPopup('✓ Cascading rotations complete!', T.success, 2.5);
+    setStatus('Complete', 'Tree fully balanced after cascade');
   }
 
   // ── Event binding ──────────────────────────────────────────────────────
@@ -280,6 +598,15 @@ export function initTreeVisualizer(container, type = 'avl') {
   panel.querySelector('#tv-btn-succ').addEventListener('click', doSucc);
   panel.querySelector('#tv-btn-gen').addEventListener('click', doGenerate);
 
+  panel.querySelector('#tv-btn-preset-ll').addEventListener('click', () => runPreset(doPresetLL));
+  panel.querySelector('#tv-btn-preset-rr').addEventListener('click', () => runPreset(doPresetRR));
+  panel.querySelector('#tv-btn-preset-lr').addEventListener('click', () => runPreset(doPresetLR));
+  panel.querySelector('#tv-btn-preset-rl').addEventListener('click', () => runPreset(doPresetRL));
+  panel.querySelector('#tv-btn-preset-del-leaf').addEventListener('click', () => runPreset(doPresetDelLeaf));
+  panel.querySelector('#tv-btn-preset-del-1child').addEventListener('click', () => runPreset(doPresetDel1Child));
+  panel.querySelector('#tv-btn-preset-del-2child').addEventListener('click', () => runPreset(doPresetDel2Children));
+  panel.querySelector('#tv-btn-preset-del-root').addEventListener('click', () => runPreset(doPresetDelRoot));
+  panel.querySelector('#tv-btn-preset-cascade').addEventListener('click', () => runPreset(doPresetCascade));
 
 
   panel.querySelectorAll('.tv-trav-btn').forEach(btn => {
